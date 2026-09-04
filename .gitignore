@@ -1,0 +1,10 @@
+# Local preview and generated analysis assets
+reference-video/
+audio-check/
+design-system/
+.impeccable/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.log

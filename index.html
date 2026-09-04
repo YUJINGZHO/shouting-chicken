@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5efe3" />
+    <meta name="description" content="按住尖叫鸡，松开听它叫。按得越久，叫得越久。" />
+    <title>尖叫鸡｜Squeak Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="." aria-label="尖叫鸡首页">
+          <span class="brand-mark" aria-hidden="true">SQ</span>
+          <span class="brand-copy">
+            <strong>尖叫鸡</strong>
+            <small>SQUEAK LAB · 01</small>
+          </span>
+        </a>
+
+        <div class="topbar-actions">
+          <div class="sound-state" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="sound-label">声音已开启</span>
+          </div>
+          <button class="icon-button" id="mute-button" type="button" aria-label="关闭声音" aria-pressed="false" title="声音开关">
+            <svg class="icon icon-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+          </button>
+          <button class="icon-button" id="reset-button" type="button" aria-label="清零尖叫次数" title="清零尖叫次数">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v6h6" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="console" aria-label="尖叫鸡操作区">
+        <div class="console-heading">
+          <div>
+            <p class="eyebrow">按压会收缩 · 松手会尖叫</p>
+            <h1>按住不放，<em>松开就叫。</em></h1>
+          </div>
+            <div class="machine-id" aria-label="设备编号">编号 <strong>SC-001</strong></div>
+        </div>
+
+        <div class="console-body">
+          <div class="chicken-stage">
+            <div class="stage-topline">
+              <span class="stage-label">互动状态</span>
+              <span class="stage-signal"><span aria-hidden="true"></span> 可以开始</span>
+            </div>
+
+            <button class="chicken-hit" id="chicken-hit" type="button" aria-label="按住尖叫鸡，松开让它叫" aria-describedby="interaction-status">
+              <span class="touch-ripple" aria-hidden="true"></span>
+              <span class="chicken-shadow" aria-hidden="true"></span>
+              <span class="chicken-art" id="chicken-art" aria-hidden="true">
+                <svg viewBox="0 0 360 640" role="img" aria-label="一只黄色的Q版尖叫鸡">
+                  <g class="chicken-svg-group">
+                    <path class="tail" d="M92 324c-47-29-75-18-76 8 0 21 32 30 70 23-42 25-37 52-16 58 23 7 52-22 65-58Z" />
+                    <path class="body-outline" d="M134 213c-26 28-48 70-56 123-13 88-1 171 47 214 25 22 64 31 90 31s65-9 90-31c48-43 60-126 47-214-8-53-30-95-56-123Z" />
+                    <path class="body" d="M143 222c-28 37-42 76-49 123-11 76 2 154 43 190 20 18 52 26 78 26s58-8 78-26c41-36 54-114 43-190-7-47-21-86-49-123-18 17-42 26-72 26s-54-9-72-26Z" />
+                    <path class="neck" d="M149 229c15-28 19-59 18-93l-4-71c0-20 12-37 31-43 21-7 43 1 51 18 4 9 5 20 3 31l-7 69c-3 35 4 63 20 89-16 17-35 26-56 26s-40-9-56-26Z" />
+                    <path class="collar" d="M139 223c17 17 39 25 65 25s48-8 65-25l-7 28c-18 16-38 23-58 23s-40-7-58-23Z" />
+                    <path class="wing" d="M98 303c-20 43-11 93 26 110 24 11 45-7 44-34-2-31-26-60-70-76Z" />
+                    <path class="wing right-wing" d="M262 303c20 43 11 93-26 110-24 11-45-7-44-34 2-31 26-60 70-76Z" />
+                    <path class="wing-detail" d="M117 326c17 14 29 31 35 51M243 326c-17 14-29 31-35 51" />
+                    <path class="head" d="M144 76c-3-28 12-54 38-65 31-13 67 0 80 28 13 27 5 61-20 78-18 12-41 16-61 10-21-6-35-24-37-51Z" />
+                    <path class="comb" d="M168 38c-6-17 2-32 15-36 10-3 18 1 22 10 7-13 20-18 31-13 11 6 13 17 8 29 13-6 27-1 31 10 6 16-8 30-25 34Z" />
+                    <path class="mouth" d="M186 76c2-17 14-28 29-27 16 1 27 14 27 32 0 24-10 45-27 45-18 0-31-23-29-50Z" />
+                    <path class="mouth-inner" d="M195 80c1-9 8-16 17-16 10 1 17 9 17 19 0 14-6 28-15 28-11 0-20-15-19-31Z" />
+                    <path class="beak" d="M219 73c20-15 41-14 55 0-14 17-32 23-52 17Z" />
+                    <circle class="eye-socket" cx="181" cy="63" r="15" />
+                    <circle class="eye-socket" cx="244" cy="63" r="15" />
+                    <circle class="eye" cx="184" cy="64" r="6" />
+                    <circle class="eye" cx="241" cy="64" r="6" />
+                    <circle class="eye-glint" cx="186" cy="62" r="2" />
+                    <circle class="eye-glint" cx="243" cy="62" r="2" />
+                    <path class="wattle" d="M207 111c-5 18 3 28 14 28 11 0 16-13 8-28Z" />
+                    <path class="leg" d="M143 532v74M217 532v74" />
+                    <path class="foot" d="M123 606c9 7 15 12 20 18M143 606c-1 9-1 15 1 22M163 606c-3 10-2 17 2 23M197 606c-5 9-5 16-2 23M217 606c1 9 1 15-1 22M237 606c4 9 4 16 0 23" />
+                    <path class="body-highlight" d="M123 365c-6 34-2 69 12 95" />
+                  </g>
+                </svg>
+              </span>
+              <span class="press-point" id="press-point" aria-hidden="true"></span>
+            </button>
+
+            <div class="stage-readout">
+              <span id="interaction-status">准备好了</span>
+              <span class="readout-line" aria-hidden="true"></span>
+              <span id="duration-readout">00.00 秒</span>
+            </div>
+          </div>
+
+          <aside class="telemetry" aria-label="互动数据">
+            <div class="telemetry-block telemetry-primary">
+              <span class="data-label">尖叫次数</span>
+              <strong class="count" id="squeeze-count">000</strong>
+              <span class="data-caption">本次打开页面</span>
+            </div>
+
+            <div class="telemetry-divider" aria-hidden="true"></div>
+
+            <div class="telemetry-block">
+              <span class="data-label">上次按压</span>
+              <strong class="telemetry-value" id="last-duration">--.-- 秒</strong>
+              <span class="data-caption">按住时长</span>
+            </div>
+
+            <div class="telemetry-block">
+              <span class="data-label">按压强度</span>
+              <div class="intensity-row">
+                <strong class="telemetry-value" id="intensity-value">未开始</strong>
+                <span class="intensity-chip" id="intensity-chip">0%</span>
+              </div>
+              <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+            </div>
+
+            <p class="telemetry-note">捏一下，<br />把压力叫出来。</p>
+          </aside>
+        </div>
+
+        <footer class="console-footer">
+          <div class="footer-marker"><span aria-hidden="true"></span> 真实触感 / 数字尖叫</div>
+          <div class="footer-hint">尖叫鸡实验室 <span aria-hidden="true">·</span> 2026</div>
+        </footer>
+      </section>
+    </main>
+
+    <script src="app.js?v=20260904-copy"></script>
+  </body>
+</html>
