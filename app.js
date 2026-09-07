@@ -1,6 +1,8 @@
 const chickenHit = document.querySelector('#chicken-hit');
 const chickenArt = document.querySelector('#chicken-art');
+const chickenRain = document.querySelector('#chicken-rain');
 const pressPoint = document.querySelector('#press-point');
+const handCursor = document.querySelector('#hand-cursor');
 const interactionStatus = document.querySelector('#interaction-status');
 const durationReadout = document.querySelector('#duration-readout');
 const squeezeCount = document.querySelector('#squeeze-count');
@@ -12,37 +14,42 @@ const muteButton = document.querySelector('#mute-button');
 const resetButton = document.querySelector('#reset-button');
 const soundLabel = document.querySelector('#sound-label');
 
-const MAX_HOLD_SECONDS = 1;
+const MAX_HOLD_SECONDS = 0.9;
 let isPressing = false;
 let pressStartedAt = 0;
 let animationFrame = 0;
 let statusTimeout = 0;
 let activePointerId = null;
 let keyboardPress = false;
+let pointerOverChicken = false;
 let muted = false;
 let count = loadCount();
 let audioContext = null;
 let squeakEngine = null;
 let squeakEnginePromise = null;
 
-// Calibrated against the reference recording (youtube fDr9G1e1Xq4). Aligning
-// its audio with the video's hand motion shows what the toy actually does:
-// the cry starts as the hand STOPS moving and runs long after the squeeze is
-// over -- a 0.25 s squeeze yields a 1.06 s cry, 0.75 s yields 3.87 s. So the
-// scream is not the air being pushed out. Squeezing empties the body quickly
-// and only rasps; the rubber then springs back slowly and drags air back in
-// through the reed, and that slow intake is the scream. Displaced volume sets
-// its length, which is why a brief press can sing for four seconds.
-//
-// Measured on the three cries: fundamental ~440 Hz whose 2nd (880 Hz) and 3rd
-// (1320 Hz) partials carry nearly all the energy; level plateaus at 70-95% for
-// the whole cry instead of decaying; pitch rises over the attack then sags 13%
-// as the body refills and the restoring force fades. The exhaust rasp measures
-// a quarter as loud, unpitched, and centred five times higher.
+// Recalibrated against the smaller toy in youtube WDmuvYvxqC4
+// ("Fidget Toy Shrilling Chicken"). Its cry is shorter and more piercing than
+// the earlier large chicken: a tiny high-frequency crack, a chirping reed
+// around the 1 kHz / 2 kHz family, then a quick little fall and cut-off. The
+// 5.8 s clip contains several separate squeaks, so a single web release must
+// stay short rather than turning them into one long 3-second scream.
+function getSmallCryDuration(air) {
+  if (air < 0.12) return 0.12 + (air / 0.12) * 0.1;
+  if (air < 0.35) return 0.22 + ((air - 0.12) / 0.23) * 0.38;
+  if (air < 0.65) return 0.6 + ((air - 0.35) / 0.3) * 0.3;
+  return 0.9 + ((air - 0.65) / 0.35) * 0.35;
+}
 const SQUEAK_WORKLET_SOURCE = String.raw`
-// h3 is set per voice below, since it varies with pressure.
-const HARMONICS = [0.08, 1, 0, 0.1, 0.05, 0.025, 0.03, 0.04, 0.03, 0.02];
-const HARMONIC_NORM = 1 / 2.4;
+const HARMONICS = [0.04, 1, 0.28, 0.08, 0.035, 0.02, 0.018, 0.012];
+const HARMONIC_NORM = 1 / 2.15;
+
+function getCryDuration(air) {
+  if (air < 0.12) return 0.12 + (air / 0.12) * 0.1;
+  if (air < 0.35) return 0.22 + ((air - 0.12) / 0.23) * 0.38;
+  if (air < 0.65) return 0.6 + ((air - 0.35) / 0.3) * 0.3;
+  return 0.9 + ((air - 0.65) / 0.35) * 0.35;
+}
 
 class ScreamingChickenProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -63,14 +70,12 @@ class ScreamingChickenProcessor extends AudioWorkletProcessor {
         const air = Math.max(0, Math.min(1, data.air));
         this.cries.push({
           air,
-          // Length is the volume to refill over the reed's intake rate, not
-          // how long the user held.
-          duration: 0.3 + air * 3.6,
+          duration: getCryDuration(air),
           frame: 0,
           phase: 0,
           lp: 0,
-          breakUntil: 0,
-          nextBreak: sampleRate * (0.6 + this.random() * 1.2),
+          bandFast: 0,
+          bandSlow: 0,
           wobble: this.random() * Math.PI * 2,
         });
       }
@@ -96,9 +101,9 @@ class ScreamingChickenProcessor extends AudioWorkletProcessor {
       if (exhaust.gain > 0.0005) {
         const noise = this.random() * 2 - 1;
         exhaust.lp += (noise - exhaust.lp) * 0.32;
-        // Measured a quarter as loud as the cry and centred far higher, so the
-        // deeper the squeeze the coarser it gets.
-        mixed += (noise - exhaust.lp) * exhaust.gain * (0.07 + exhaust.air * 0.045);
+        // The small body exhales a thin, high rasp rather than a deep rubber
+        // groan, so keep this layer quiet and light.
+        mixed += (noise - exhaust.lp) * exhaust.gain * (0.05 + exhaust.air * 0.035);
       }
 
       // --- air being drawn back in: the cry ---
@@ -112,32 +117,36 @@ class ScreamingChickenProcessor extends AudioWorkletProcessor {
           continue;
         }
 
-        // The rubber's restoring force does the work, so the level holds while
-        // the body is still out of shape and shuts off as it finishes filling.
-        const attack = Math.min(1, time / 0.035);
-        const closing = Math.min(1, (1 - progress) / 0.05);
-        const supply = attack * closing * (0.82 + 0.18 * (1 - progress));
+        const tailDuration = Math.min(0.1, voice.duration * 0.16);
+        const tailProgress = Math.max(
+          0,
+          Math.min(1, (time - (voice.duration - tailDuration)) / tailDuration),
+        );
+
+        // The small toy has a brief shrill attack, a compact chirping body,
+        // and a quick fall. It should never inherit the large toy's long,
+        // smooth three-second release envelope.
+        const attack = Math.min(1, time / 0.022);
+        const supply = attack * (1 - tailProgress) * (0.9 + 0.1 * (1 - progress));
 
         const noise = this.random() * 2 - 1;
         voice.lp += (noise - voice.lp) * 0.32;
         const hiss = noise - voice.lp;
 
-        const lock = Math.max(0, Math.min(1, (time - 0.018) / 0.055));
-        const vibrato = Math.sin(time * Math.PI * 2 * 5.5 + voice.wobble) * 0.012;
-        // Pitch tracks the restoring force: it climbs on the attack, then sags
-        // 13% as the body regains its shape. Smooth -- no steps.
-        let frequency =
-          454 * (0.94 + 0.06 * attack) * (1 - 0.13 * Math.pow(progress, 1.4)) * (1 + vibrato);
+        // Two short low-pass memories make the small toy's thin, high rasp
+        // instead of adding a broad noisy layer.
+        voice.bandFast += (noise - voice.bandFast) * 0.5;
+        voice.bandSlow += (noise - voice.bandSlow) * 0.15;
+        const midHighRasp = voice.bandFast - voice.bandSlow;
 
-        // Only the deepest squeezes refill hard enough to overdrive the reed
-        // into a brief higher mode. Short squeezes stay clean and level, which
-        // is why the first two cries in the reference hold one clear note.
-        if (voice.air > 0.75) {
-          if (voice.frame >= voice.nextBreak) {
-            voice.breakUntil = voice.frame + sampleRate * (0.012 + this.random() * 0.028);
-            voice.nextBreak = voice.frame + sampleRate * (0.7 + this.random() * 1.4);
-          }
-          if (voice.frame < voice.breakUntil) frequency *= 2.06;
+        const lock = Math.max(0, Math.min(1, (time - 0.012) / 0.042));
+        const chirp = Math.sin(time * Math.PI * 2 * 7.2 + voice.wobble) * 0.035;
+        const settling = 0.055 * Math.exp(-time / 0.09);
+        // The smaller reed sits higher and chirps around a stable note. The
+        // only decisive downward movement is the final short tail.
+        let frequency = 520 * (1 + settling + chirp);
+        if (tailProgress > 0) {
+          frequency *= 1 - 0.22 * Math.pow(tailProgress, 0.68);
         }
 
         voice.phase += (Math.PI * 2 * frequency) / sampleRate;
@@ -148,16 +157,17 @@ class ScreamingChickenProcessor extends AudioWorkletProcessor {
         // rich waveform would add a buzz the toy does not have.
         let tone = 0;
         for (let h = 0; h < HARMONICS.length; h += 1) {
-          // The 3rd partial thins as the intake hardens: 0.79 on the gentlest
-          // cry down to 0.46 on the hardest. Soft squeezes are reedier.
-          const weight = h === 2 ? 1.02 - voice.air * 0.47 : HARMONICS[h];
-          tone += Math.sin(voice.phase * (h + 1)) * weight;
+          tone += Math.sin(voice.phase * (h + 1)) * HARMONICS[h];
         }
         tone *= HARMONIC_NORM;
 
-        const breath = hiss * 0.09 * (0.4 + voice.air * 0.6);
-        const startup = hiss * (1 - lock) * 0.34;
-        mixed += supply * (tone * lock * (0.31 + voice.air * 0.31) + breath * lock + startup);
+        const crackEnvelope = Math.exp(-time / 0.055) * (1 - Math.exp(-time / 0.003));
+        const crackBurst = (noise - voice.lp) * crackEnvelope * (0.22 + voice.air * 0.1);
+        const crackRasp = midHighRasp * crackEnvelope * 0.2;
+        const breath = hiss * 0.055 * (0.45 + voice.air * 0.55);
+        const shrillBody = midHighRasp * (0.018 + voice.air * 0.018);
+        mixed += supply * (tone * lock * (0.38 + voice.air * 0.15) + breath * lock + shrillBody);
+        mixed += crackBurst + crackRasp;
         voice.frame += 1;
       }
 
@@ -198,12 +208,77 @@ function setIdleState() {
   chickenHit.style.setProperty('--squeeze-scale', '1');
   pressPoint.style.left = '50%';
   pressPoint.style.top = '50%';
-  interactionStatus.textContent = '准备好了';
+  interactionStatus.textContent = '它还活着，暂时';
   intensityValue.textContent = '未开始';
   intensityChip.textContent = '0%';
   meterFill.style.transform = 'scaleX(0)';
   meterFill.style.backgroundColor = 'var(--blue)';
   durationReadout.textContent = '00.00 秒';
+}
+
+function setHandPosition(clientX, clientY) {
+  if (!handCursor || clientX == null || clientY == null) return;
+  handCursor.style.setProperty('--hand-x', `${clientX}px`);
+  handCursor.style.setProperty('--hand-y', `${clientY}px`);
+}
+
+function showHandCursor(clientX, clientY) {
+  if (!handCursor || clientX == null || clientY == null) return;
+  setHandPosition(clientX, clientY);
+  handCursor.classList.add('is-visible');
+}
+
+function hideHandCursor() {
+  if (!handCursor) return;
+  handCursor.classList.remove('is-visible', 'is-grabbing');
+}
+
+function setHandGrabbing(grabbing) {
+  if (!handCursor) return;
+  handCursor.classList.toggle('is-grabbing', grabbing);
+}
+
+function startChickenRain() {
+  if (!chickenRain || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const source = chickenArt?.querySelector('svg');
+  if (!source) return;
+
+  const chickenCount = 12;
+
+  for (let index = 0; index < chickenCount; index += 1) {
+    const fallingChicken = document.createElement('span');
+    const clone = source.cloneNode(true);
+    const spread = 8 + ((index * 37 + Math.random() * 18) % 84);
+    const delay = index * 0.08 + Math.random() * 0.32;
+    const duration = 2050 + Math.random() * 950;
+    const start = -90 - Math.random() * 240;
+    const midDrift = -120 + Math.random() * 240;
+    const endDrift = -180 + Math.random() * 360;
+
+    fallingChicken.className = 'falling-chicken';
+    fallingChicken.style.setProperty('--fall-x', `${spread}%`);
+    fallingChicken.style.setProperty('--fall-start', `${start}px`);
+    fallingChicken.style.setProperty('--fall-size', `${24 + Math.random() * 30}px`);
+    fallingChicken.style.setProperty('--fall-scale', `${0.8 + Math.random() * 0.34}`);
+    fallingChicken.style.setProperty('--fall-opacity', `${0.64 + Math.random() * 0.28}`);
+    fallingChicken.style.setProperty('--fall-rotation', `${-26 + Math.random() * 52}deg`);
+    fallingChicken.style.setProperty('--fall-mid-drift', `${midDrift}px`);
+    fallingChicken.style.setProperty('--fall-end-drift', `${endDrift}px`);
+    fallingChicken.style.setProperty('--fall-exit-drift', `${endDrift + (-36 + Math.random() * 72)}px`);
+    fallingChicken.style.setProperty('--fall-mid-y', `${31 + Math.random() * 24}vh`);
+    fallingChicken.style.setProperty('--fall-end-y', `${67 + Math.random() * 25}vh`);
+    fallingChicken.style.setProperty('--fall-mid-spin', `${-90 + Math.random() * 180}deg`);
+    fallingChicken.style.setProperty('--fall-end-spin', `${-180 + Math.random() * 360}deg`);
+    fallingChicken.style.setProperty('--fall-exit-spin', `${120 + Math.random() * 260}deg`);
+    fallingChicken.style.setProperty('--fall-delay', `${delay}s`);
+    fallingChicken.style.setProperty('--fall-duration', `${duration}ms`);
+    clone.removeAttribute('role');
+    clone.removeAttribute('aria-label');
+    clone.setAttribute('aria-hidden', 'true');
+    fallingChicken.append(clone);
+    fallingChicken.addEventListener('animationend', () => fallingChicken.remove(), { once: true });
+    chickenRain.append(fallingChicken);
+  }
 }
 
 function setPressOrigin(clientX, clientY) {
@@ -302,17 +377,17 @@ async function ensureSqueakEngine() {
 }
 
 function playFallbackSqueak(context, air) {
-  // Same shape as the worklet for browsers without AudioWorklet: the reference
-  // tone is close enough to three partials that oscillators can carry it.
+  // Same short, shrill shape for browsers without AudioWorklet.
   const now = context.currentTime;
-  const duration = 0.3 + air * 3.6;
+  const duration = getSmallCryDuration(air);
+  const tailStart = now + Math.max(0, duration - Math.min(0.1, duration * 0.16));
   const output = context.createGain();
   const compressor = context.createDynamicsCompressor();
   const partials = [
-    { ratio: 1, level: 0.08 },
-    { ratio: 2, level: 0.5 },
-    { ratio: 3, level: 0.26 + air * 0.14 },
-    { ratio: 4, level: 0.05 },
+    { ratio: 1, level: 0.05 },
+    { ratio: 2, level: 0.56 },
+    { ratio: 3, level: 0.18 + air * 0.1 },
+    { ratio: 4, level: 0.045 },
   ];
 
   compressor.threshold.value = -18;
@@ -325,18 +400,30 @@ function playFallbackSqueak(context, air) {
     const osc = context.createOscillator();
     const gain = context.createGain();
     osc.type = 'sine';
-    // Pitch sags with the emptying body, exactly as measured.
-    osc.frequency.setValueAtTime(446 * ratio, now);
-    osc.frequency.linearRampToValueAtTime(446 * 0.8 * ratio, now + duration);
+    osc.frequency.setValueAtTime(520 * 1.055 * ratio, now);
+    osc.frequency.setValueAtTime(520 * ratio, now + Math.min(0.09, duration * 0.25));
+    osc.frequency.setValueAtTime(520 * ratio, tailStart);
+    osc.frequency.linearRampToValueAtTime(520 * 0.78 * ratio, now + duration);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(level, now + 0.035);
-    // A plateau, not a decay -- the level holds while air remains.
-    gain.gain.setValueAtTime(level, now + duration * 0.95);
+    gain.gain.linearRampToValueAtTime(level, now + 0.022);
+    gain.gain.setValueAtTime(level, tailStart);
     gain.gain.linearRampToValueAtTime(0.0001, now + duration);
     osc.connect(gain).connect(compressor);
     osc.start(now);
     osc.stop(now + duration + 0.03);
   });
+
+  const crack = context.createOscillator();
+  const crackGain = context.createGain();
+  crack.type = 'sawtooth';
+  crack.frequency.setValueAtTime(760, now);
+  crack.frequency.linearRampToValueAtTime(1180, now + 0.05);
+  crackGain.gain.setValueAtTime(0.0001, now);
+  crackGain.gain.linearRampToValueAtTime(0.06 + air * 0.05, now + 0.01);
+  crackGain.gain.exponentialRampToValueAtTime(0.0001, now + Math.min(0.12, duration));
+  crack.connect(crackGain).connect(compressor);
+  crack.start(now);
+  crack.stop(now + Math.min(0.14, duration + 0.02));
 }
 
 function playSqueak(intensity) {
@@ -364,9 +451,12 @@ function startPress(clientX, clientY, pointerId = null) {
   activePointerId = pointerId;
   pressStartedAt = performance.now();
   if (clientX == null || clientY == null) {
+    hideHandCursor();
     const rect = chickenHit.getBoundingClientRect();
     setPressOrigin(rect.left + rect.width / 2, rect.top + rect.height / 2);
   } else {
+    showHandCursor(clientX, clientY);
+    setHandGrabbing(true);
     setPressOrigin(clientX, clientY);
   }
   window.clearTimeout(statusTimeout);
@@ -384,6 +474,8 @@ function finishPress(shouldSqueak = true) {
   const intensity = getIntensity(elapsed);
   isPressing = false;
   activePointerId = null;
+  setHandGrabbing(false);
+  if (!pointerOverChicken) hideHandCursor();
   cancelAnimationFrame(animationFrame);
 
   if (shouldSqueak) {
@@ -391,7 +483,7 @@ function finishPress(shouldSqueak = true) {
     saveCount();
     squeezeCount.textContent = formatCount(count);
     lastDuration.textContent = `${elapsed.toFixed(2)} 秒`;
-    interactionStatus.textContent = '尖叫！';
+    interactionStatus.textContent = '尖叫！实验成功';
     playSqueak(intensity);
     chickenHit.classList.remove('is-pressing');
     window.clearTimeout(statusTimeout);
@@ -429,8 +521,29 @@ chickenHit.addEventListener('pointerdown', (event) => {
   startPress(event.clientX, event.clientY, event.pointerId);
 });
 
+chickenHit.addEventListener('pointerenter', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  pointerOverChicken = true;
+  showHandCursor(event.clientX, event.clientY);
+});
+
+chickenHit.addEventListener('pointerleave', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  pointerOverChicken = false;
+  hideHandCursor();
+});
+
 chickenHit.addEventListener('pointermove', (event) => {
+  if (event.pointerType === 'mouse' && pointerOverChicken) {
+    showHandCursor(event.clientX, event.clientY);
+  }
   if (isPressing && event.pointerId === activePointerId) setPressOrigin(event.clientX, event.clientY);
+});
+
+window.addEventListener('pointermove', (event) => {
+  if (event.pointerType === 'mouse' && pointerOverChicken) {
+    setHandPosition(event.clientX, event.clientY);
+  }
 });
 
 chickenHit.addEventListener('pointerup', (event) => {
@@ -462,6 +575,8 @@ window.addEventListener('blur', () => {
     keyboardPress = false;
     finishPress(false);
   }
+  pointerOverChicken = false;
+  hideHandCursor();
 });
 
 muteButton.addEventListener('click', () => {
@@ -474,3 +589,4 @@ resetButton.addEventListener('click', resetCount);
 
 squeezeCount.textContent = formatCount(count);
 setIdleState();
+window.setTimeout(startChickenRain, 120);

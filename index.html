@@ -4,21 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f5efe3" />
-    <meta name="description" content="按住尖叫鸡，松开听它叫。按得越久，叫得越久。" />
+    <meta name="description" content="一个不太负责任的尖叫鸡实验室：按住它，松手听它叫。" />
     <title>尖叫鸡｜Squeak Lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260907-scatter-v2" />
   </head>
   <body>
+    <div class="chicken-rain" id="chicken-rain" aria-hidden="true"></div>
     <main class="app-shell">
       <header class="topbar">
         <a class="brand" href="." aria-label="尖叫鸡首页">
           <span class="brand-mark" aria-hidden="true">SQ</span>
           <span class="brand-copy">
             <strong>尖叫鸡</strong>
-            <small>SQUEAK LAB · 01</small>
+            <small>SQUEAK LAB · UNSTABLE UNIT</small>
           </span>
         </a>
 
@@ -45,17 +46,31 @@
       <section class="console" aria-label="尖叫鸡操作区">
         <div class="console-heading">
           <div>
-            <p class="eyebrow">按压会收缩 · 松手会尖叫</p>
-            <h1>按住不放，<em>松开就叫。</em></h1>
+            <p class="eyebrow">实验记录 07 · 不建议在安静场所进行</p>
+            <h1>请勿触碰<em>这只鸡。</em></h1>
           </div>
-            <div class="machine-id" aria-label="设备编号">编号 <strong>SC-001</strong></div>
+            <div class="machine-id" aria-label="实验编号">实验编号 <strong>SC-001</strong></div>
         </div>
 
         <div class="console-body">
           <div class="chicken-stage">
+            <div class="warning-wall" aria-hidden="true">
+              <span class="warning-card warning-card-a">⚠ 目标 07 / 观察中</span>
+              <span class="warning-card warning-card-b">警报级别：尖叫</span>
+              <span class="warning-card warning-card-c">体征：过度兴奋</span>
+              <span class="warning-card warning-card-d">音量超标</span>
+              <span class="warning-card warning-card-e">声波异常</span>
+              <span class="warning-card warning-card-f">请勿惹它</span>
+              <span class="warning-card warning-card-g">逃逸风险 03</span>
+              <span class="warning-card warning-card-h">鸡舍封锁</span>
+              <span class="warning-blip warning-blip-a"></span>
+              <span class="warning-blip warning-blip-b"></span>
+              <span class="warning-radar"></span>
+              <span class="warning-pulse"></span>
+            </div>
             <div class="stage-topline">
-              <span class="stage-label">互动状态</span>
-              <span class="stage-signal"><span aria-hidden="true"></span> 可以开始</span>
+              <span class="stage-label">实验对象</span>
+              <span class="stage-signal"><span aria-hidden="true"></span> 状态稳定……暂时</span>
             </div>
 
             <button class="chicken-hit" id="chicken-hit" type="button" aria-label="按住尖叫鸡，松开让它叫" aria-describedby="interaction-status">
@@ -91,10 +106,22 @@
                 </svg>
               </span>
               <span class="press-point" id="press-point" aria-hidden="true"></span>
+              <span class="hand-cursor" id="hand-cursor" aria-hidden="true">
+                <svg class="hand-svg hand-open" viewBox="0 0 86 100" aria-hidden="true">
+                  <path class="glove-fill" d="M29 7c-6 0-10 4-10 10v25l-5-10c-2-5-7-7-11-4-4 2-5 7-3 11l10 27c4 10 12 17 23 20l15 4c12 3 24-4 27-16l4-18c1-5-2-10-7-11-5-1-9 2-10 7l-2-12c-1-5-5-8-10-7-4 1-7 4-7 9l-1-17c0-5-4-8-8-8-4 0-7 3-7 8V17c0-6-3-10-8-10Z" />
+                  <path class="glove-line" d="M19 43c-1-8-1-17 0-25M32 38c-1-8-1-15-1-21M47 46c2-5 1-11-1-15M64 56c3-5 1-11-4-14M16 56c2 8 8 14 16 18" />
+                  <path class="glove-highlight" d="M29 76c5 4 12 6 19 7" />
+                </svg>
+                <svg class="hand-svg hand-grab" viewBox="0 0 86 100" aria-hidden="true">
+                  <path class="glove-fill" d="M37 12c-6 0-10 4-10 10v16l-7-7c-3-3-7-3-10 0-3 3-3 7 0 10l12 14c6 7 14 11 24 12h14c9 0 15-7 15-15V39c0-5-3-8-8-8-4 0-7 2-8 6v-9c0-5-3-8-8-8-4 0-7 2-8 6v-4c0-6-4-10-10-10Z" />
+                  <path class="glove-line" d="M27 38V22M45 40V27M60 38v11M19 47l10 12c5 6 12 9 20 9h12" />
+                  <path class="glove-highlight" d="M38 57c5 4 11 6 18 6" />
+                </svg>
+              </span>
             </button>
 
             <div class="stage-readout">
-              <span id="interaction-status">准备好了</span>
+              <span id="interaction-status">它还活着，暂时</span>
               <span class="readout-line" aria-hidden="true"></span>
               <span id="duration-readout">00.00 秒</span>
             </div>
@@ -124,17 +151,20 @@
               <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
             </div>
 
-            <p class="telemetry-note">捏一下，<br />把压力叫出来。</p>
+            <p class="telemetry-note">捏一下，<br />看看谁先后悔。</p>
           </aside>
         </div>
 
         <footer class="console-footer">
-          <div class="footer-marker"><span aria-hidden="true"></span> 真实触感 / 数字尖叫</div>
+          <div class="footer-marker"><span aria-hidden="true"></span> 耳朵安全协议：不存在</div>
           <div class="footer-hint">尖叫鸡实验室 <span aria-hidden="true">·</span> 2026</div>
         </footer>
       </section>
     </main>
 
-    <script src="app.js?v=20260904-copy"></script>
+    <script>
+      document.body.classList.toggle('poster-stack-preview', new URLSearchParams(window.location.search).get('style') === 'poster-stack');
+    </script>
+    <script src="app.js?v=20260907-scatter-v2"></script>
   </body>
 </html>
