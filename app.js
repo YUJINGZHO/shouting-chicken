@@ -13,6 +13,111 @@ const meterFill = document.querySelector('#meter-fill');
 const muteButton = document.querySelector('#mute-button');
 const resetButton = document.querySelector('#reset-button');
 const soundLabel = document.querySelector('#sound-label');
+const languageToggle = document.querySelector('#language-toggle');
+const languageZh = document.querySelector('#language-zh');
+const languageEn = document.querySelector('#language-en');
+const consolePanel = document.querySelector('#console');
+const chickenImage = document.querySelector('#chicken-image');
+
+const LANGUAGE_STORAGE_KEY = 'squeak-language';
+const translations = {
+  zh: {
+    documentTitle: '尖叫鸡｜Squeak Lab',
+    description: '一个不太负责任的尖叫鸡实验室：按住它，松手听它叫。',
+    brandName: '尖叫鸡',
+    brandSubtitle: 'SQUEAK LAB · UNSTABLE UNIT',
+    brandHome: '尖叫鸡首页',
+    soundOn: '声音已开启',
+    soundMuted: '声音已静音',
+    muteOn: '开启声音',
+    muteOff: '关闭声音',
+    muteTitle: '声音开关',
+    resetCount: '清零尖叫次数',
+    switchToEnglish: '切换到 English',
+    switchToChinese: '切换到中文',
+    consoleLabel: '尖叫鸡操作区',
+    eyebrow: '实验记录 07 · 不建议在安静场所进行',
+    headlineLead: '请勿触碰',
+    headlineAccent: '这只鸡。',
+    experimentId: '实验编号',
+    warningTarget: '⚠ 目标 07 / 观察中',
+    warningAlert: '警报级别：尖叫',
+    warningVitals: '体征：过度兴奋',
+    warningVolume: '音量超标',
+    warningWave: '声波异常',
+    warningProvoke: '请勿惹它',
+    warningEscape: '逃逸风险 03',
+    warningLockdown: '鸡舍封锁',
+    subjectLabel: '实验对象',
+    chickenImage: '一只黄色的Q版尖叫鸡',
+    chickenButton: '按住尖叫鸡，松开让它叫',
+    idle: '它还活着，暂时',
+    pressing: '按住不放',
+    success: '尖叫！实验成功',
+    reset: '次数已清零',
+    seconds: '秒',
+    notStarted: '未开始',
+    light: '轻',
+    medium: '中',
+    heavy: '重',
+    screamCount: '尖叫次数',
+    thisSession: '本次打开页面',
+    lastSqueeze: '上次按压',
+    heldFor: '按住时长',
+    squeezeIntensity: '按压强度',
+    noteCopy: '捏一下，把压力叫出来。',
+    safetyProtocol: '耳朵爆炸协议：不存在',
+    labName: '尖叫鸡实验室',
+  },
+  en: {
+    documentTitle: 'Screaming Chicken | Squeak Lab',
+    description: 'A deeply irresponsible screaming chicken lab: hold it, release it, hear it scream.',
+    brandName: 'Screaming Chicken',
+    brandSubtitle: 'SQUEAK LAB · UNSTABLE UNIT',
+    brandHome: 'Screaming Chicken home',
+    soundOn: 'Sound on',
+    soundMuted: 'Sound muted',
+    muteOn: 'Turn sound on',
+    muteOff: 'Mute sound',
+    muteTitle: 'Sound toggle',
+    resetCount: 'Reset scream count',
+    switchToEnglish: 'Switch to English',
+    switchToChinese: '切换到中文',
+    consoleLabel: 'Screaming Chicken controls',
+    eyebrow: 'RECORD 07 · NOT FOR QUIET PLACES',
+    headlineLead: 'DO NOT TOUCH',
+    headlineAccent: 'THIS CHICKEN.',
+    experimentId: 'EXPERIMENT ID',
+    warningTarget: '⚠ TARGET 07 / UNDER OBSERVATION',
+    warningAlert: 'ALERT LEVEL: SCREAM',
+    warningVitals: 'VITALS: OVEREXCITED',
+    warningVolume: 'VOLUME EXCEEDED',
+    warningWave: 'ABNORMAL SOUND WAVE',
+    warningProvoke: 'DO NOT PROVOKE',
+    warningEscape: 'ESCAPE RISK 03',
+    warningLockdown: 'COOP LOCKDOWN',
+    subjectLabel: 'SUBJECT',
+    chickenImage: 'A yellow cartoon screaming chicken',
+    chickenButton: 'Hold the chicken, then release to make it scream',
+    idle: "It's alive. For now.",
+    pressing: 'HOLD IT',
+    success: 'SCREAM! EXPERIMENT SUCCESSFUL',
+    reset: 'COUNT RESET',
+    seconds: 's',
+    notStarted: 'NOT STARTED',
+    light: 'LIGHT',
+    medium: 'MEDIUM',
+    heavy: 'HEAVY',
+    screamCount: 'SCREAMS',
+    thisSession: 'THIS SESSION',
+    lastSqueeze: 'LAST SQUEEZE',
+    heldFor: 'HELD FOR',
+    squeezeIntensity: 'SQUEEZE INTENSITY',
+    noteCopy: 'Squeeze it. Let the pressure out.',
+    safetyProtocol: 'EAR EXPLOSION PROTOCOL: NONE',
+    labName: 'SCREAMING CHICKEN LAB',
+  },
+};
 
 const MAX_HOLD_SECONDS = 0.9;
 let isPressing = false;
@@ -24,6 +129,11 @@ let keyboardPress = false;
 let pointerOverChicken = false;
 let muted = false;
 let count = loadCount();
+let language = loadLanguage();
+let interactionState = 'idle';
+let currentHoldSeconds = 0;
+let currentIntensity = 0;
+let lastSqueezeSeconds = null;
 let audioContext = null;
 let squeakEngine = null;
 let squeakEnginePromise = null;
@@ -191,6 +301,77 @@ function loadCount() {
   }
 }
 
+function loadLanguage() {
+  try {
+    return localStorage.getItem(LANGUAGE_STORAGE_KEY) === 'en' ? 'en' : 'zh';
+  } catch {
+    return 'zh';
+  }
+}
+
+function saveLanguage() {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // Storage is an enhancement; language switching still works without it.
+  }
+}
+
+function t(key) {
+  return translations[language][key] || translations.zh[key] || key;
+}
+
+function formatDuration(value) {
+  return `${value.toFixed(2).padStart(5, '0')} ${t('seconds')}`;
+}
+
+function formatEmptyDuration() {
+  return `--.-- ${t('seconds')}`;
+}
+
+function getIntensityLabel(intensity) {
+  if (intensity > 72) return t('heavy');
+  if (intensity > 38) return t('medium');
+  return t('light');
+}
+
+function renderDynamicText() {
+  interactionStatus.textContent = t(interactionState);
+  durationReadout.textContent = formatDuration(currentHoldSeconds);
+  intensityValue.textContent = interactionState === 'idle' ? t('notStarted') : getIntensityLabel(currentIntensity);
+  lastDuration.textContent = lastSqueezeSeconds == null ? formatEmptyDuration() : formatDuration(lastSqueezeSeconds);
+}
+
+function applyLanguage(nextLanguage = language) {
+  language = nextLanguage === 'en' ? 'en' : 'zh';
+  document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
+  document.title = t('documentTitle');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('description'));
+  document.body.dataset.language = language;
+
+  document.querySelectorAll('[data-i18n]').forEach((element) => {
+    const key = element.dataset.i18n;
+    element.textContent = t(key);
+  });
+
+  document.querySelector('.brand')?.setAttribute('aria-label', t('brandHome'));
+  consolePanel?.setAttribute('aria-label', t('consoleLabel'));
+  document.querySelector('.machine-id')?.setAttribute('aria-label', t('experimentId'));
+  document.querySelector('.telemetry')?.setAttribute('aria-label', t('squeezeIntensity'));
+  chickenHit?.setAttribute('aria-label', t('chickenButton'));
+  chickenImage?.setAttribute('aria-label', t('chickenImage'));
+  languageToggle?.setAttribute('aria-label', language === 'zh' ? t('switchToEnglish') : t('switchToChinese'));
+  languageToggle?.setAttribute('title', language === 'zh' ? t('switchToEnglish') : t('switchToChinese'));
+  languageZh?.classList.toggle('is-active', language === 'zh');
+  languageEn?.classList.toggle('is-active', language === 'en');
+  muteButton?.setAttribute('title', t('muteTitle'));
+  resetButton?.setAttribute('aria-label', t('resetCount'));
+  resetButton?.setAttribute('title', t('resetCount'));
+  renderSoundIcon();
+  renderDynamicText();
+  saveLanguage();
+}
+
 function saveCount() {
   try {
     localStorage.setItem('squeak-count', String(count));
@@ -208,12 +389,15 @@ function setIdleState() {
   chickenHit.style.setProperty('--squeeze-scale', '1');
   pressPoint.style.left = '50%';
   pressPoint.style.top = '50%';
-  interactionStatus.textContent = '它还活着，暂时';
-  intensityValue.textContent = '未开始';
+  interactionState = 'idle';
+  currentHoldSeconds = 0;
+  currentIntensity = 0;
+  interactionStatus.textContent = t('idle');
+  intensityValue.textContent = t('notStarted');
   intensityChip.textContent = '0%';
   meterFill.style.transform = 'scaleX(0)';
   meterFill.style.backgroundColor = 'var(--blue)';
-  durationReadout.textContent = '00.00 秒';
+  durationReadout.textContent = formatDuration(0);
 }
 
 function setHandPosition(clientX, clientY) {
@@ -308,13 +492,15 @@ function updatePress() {
   if (!isPressing) return;
   const elapsed = Math.min(MAX_HOLD_SECONDS, (performance.now() - pressStartedAt) / 1000);
   const intensity = getIntensity(elapsed);
+  currentHoldSeconds = elapsed;
+  currentIntensity = intensity;
   const scale = Math.max(0.56, 1 - intensity * 0.0044);
   chickenHit.style.setProperty('--squeeze-scale', String(scale));
   // Air only leaves while the body is still collapsing. Holding at full
   // squeeze displaces nothing more, so the rasp dies away on its own.
   sendSqueezeState(elapsed < MAX_HOLD_SECONDS ? 1 : 0, intensity / 100);
-  durationReadout.textContent = `${elapsed.toFixed(2).padStart(5, '0')} 秒`;
-  intensityValue.textContent = intensity > 72 ? '重' : intensity > 38 ? '中' : '轻';
+  durationReadout.textContent = formatDuration(elapsed);
+  intensityValue.textContent = getIntensityLabel(intensity);
   intensityChip.textContent = `${intensity}%`;
   meterFill.style.transform = `scaleX(${intensity / 100})`;
   meterFill.style.backgroundColor = intensity > 72 ? 'var(--orange)' : 'var(--blue)';
@@ -461,7 +647,8 @@ function startPress(clientX, clientY, pointerId = null) {
   }
   window.clearTimeout(statusTimeout);
   chickenHit.classList.add('is-pressing');
-  interactionStatus.textContent = '按住不放';
+  interactionState = 'pressing';
+  interactionStatus.textContent = t('pressing');
   ensureAudio();
   ensureSqueakEngine();
   cancelAnimationFrame(animationFrame);
@@ -482,8 +669,10 @@ function finishPress(shouldSqueak = true) {
     count += 1;
     saveCount();
     squeezeCount.textContent = formatCount(count);
-    lastDuration.textContent = `${elapsed.toFixed(2)} 秒`;
-    interactionStatus.textContent = '尖叫！实验成功';
+    lastSqueezeSeconds = elapsed;
+    interactionState = 'success';
+    lastDuration.textContent = formatDuration(elapsed);
+    interactionStatus.textContent = t('success');
     playSqueak(intensity);
     chickenHit.classList.remove('is-pressing');
     window.clearTimeout(statusTimeout);
@@ -499,17 +688,19 @@ function renderSoundIcon() {
     ? '<path d="M11 5 6 9H2v6h4l5 4V5Z" /><path d="m23 9-6 6M17 9l6 6" />'
     : '<path d="M11 5 6 9H2v6h4l5 4V5Z" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />';
   muteButton.querySelector('svg').innerHTML = icon;
-  muteButton.setAttribute('aria-label', muted ? '开启声音' : '关闭声音');
+  muteButton.setAttribute('aria-label', muted ? t('muteOn') : t('muteOff'));
   muteButton.setAttribute('aria-pressed', String(muted));
-  soundLabel.textContent = muted ? '声音已静音' : '声音已开启';
+  soundLabel.textContent = muted ? t('soundMuted') : t('soundOn');
 }
 
 function resetCount() {
   count = 0;
   saveCount();
   squeezeCount.textContent = formatCount(count);
-  lastDuration.textContent = '--.-- 秒';
-  interactionStatus.textContent = '次数已清零';
+  lastSqueezeSeconds = null;
+  interactionState = 'reset';
+  interactionStatus.textContent = t('reset');
+  lastDuration.textContent = formatEmptyDuration();
   window.clearTimeout(statusTimeout);
   statusTimeout = window.setTimeout(setIdleState, 900);
 }
@@ -586,7 +777,11 @@ muteButton.addEventListener('click', () => {
 });
 
 resetButton.addEventListener('click', resetCount);
+languageToggle.addEventListener('click', () => {
+  applyLanguage(language === 'zh' ? 'en' : 'zh');
+});
 
 squeezeCount.textContent = formatCount(count);
+applyLanguage(language);
 setIdleState();
 window.setTimeout(startChickenRain, 120);

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260907-scatter-v2" />
+    <link rel="stylesheet" href="styles.css?v=20260907-i18n-v1" />
   </head>
   <body>
     <div class="chicken-rain" id="chicken-rain" aria-hidden="true"></div>
@@ -18,16 +18,21 @@
         <a class="brand" href="." aria-label="尖叫鸡首页">
           <span class="brand-mark" aria-hidden="true">SQ</span>
           <span class="brand-copy">
-            <strong>尖叫鸡</strong>
-            <small>SQUEAK LAB · UNSTABLE UNIT</small>
+            <strong data-i18n="brandName">尖叫鸡</strong>
+            <small data-i18n="brandSubtitle">SQUEAK LAB · UNSTABLE UNIT</small>
           </span>
         </a>
 
         <div class="topbar-actions">
           <div class="sound-state" aria-live="polite">
             <span class="status-dot" aria-hidden="true"></span>
-            <span id="sound-label">声音已开启</span>
+            <span id="sound-label" data-i18n="soundOn">声音已开启</span>
           </div>
+          <button class="language-toggle" id="language-toggle" type="button" aria-label="切换到 English" title="切换语言">
+            <span class="language-option language-option-zh is-active" id="language-zh" aria-hidden="true">中</span>
+            <span class="language-divider" aria-hidden="true">/</span>
+            <span class="language-option language-option-en" id="language-en" aria-hidden="true">EN</span>
+          </button>
           <button class="icon-button" id="mute-button" type="button" aria-label="关闭声音" aria-pressed="false" title="声音开关">
             <svg class="icon icon-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M11 5 6 9H2v6h4l5 4V5Z" />
@@ -43,41 +48,40 @@
         </div>
       </header>
 
-      <section class="console" aria-label="尖叫鸡操作区">
+      <section class="console" id="console" aria-label="尖叫鸡操作区">
         <div class="console-heading">
           <div>
-            <p class="eyebrow">实验记录 07 · 不建议在安静场所进行</p>
-            <h1>请勿触碰<em>这只鸡。</em></h1>
+            <p class="eyebrow" data-i18n="eyebrow">实验记录 07 · 不建议在安静场所进行</p>
+            <h1><span data-i18n="headlineLead">请勿触碰</span><em data-i18n="headlineAccent">这只鸡。</em></h1>
           </div>
-            <div class="machine-id" aria-label="实验编号">实验编号 <strong>SC-001</strong></div>
+            <div class="machine-id" aria-label="实验编号"><span data-i18n="experimentId">实验编号</span> <strong>SC-001</strong></div>
         </div>
 
         <div class="console-body">
           <div class="chicken-stage">
             <div class="warning-wall" aria-hidden="true">
-              <span class="warning-card warning-card-a">⚠ 目标 07 / 观察中</span>
-              <span class="warning-card warning-card-b">警报级别：尖叫</span>
-              <span class="warning-card warning-card-c">体征：过度兴奋</span>
-              <span class="warning-card warning-card-d">音量超标</span>
-              <span class="warning-card warning-card-e">声波异常</span>
-              <span class="warning-card warning-card-f">请勿惹它</span>
-              <span class="warning-card warning-card-g">逃逸风险 03</span>
-              <span class="warning-card warning-card-h">鸡舍封锁</span>
+              <span class="warning-card warning-card-a" data-i18n="warningTarget">⚠ 目标 07 / 观察中</span>
+              <span class="warning-card warning-card-b" data-i18n="warningAlert">警报级别：尖叫</span>
+              <span class="warning-card warning-card-c" data-i18n="warningVitals">体征：过度兴奋</span>
+              <span class="warning-card warning-card-d" data-i18n="warningVolume">音量超标</span>
+              <span class="warning-card warning-card-e" data-i18n="warningWave">声波异常</span>
+              <span class="warning-card warning-card-f" data-i18n="warningProvoke">请勿惹它</span>
+              <span class="warning-card warning-card-g" data-i18n="warningEscape">逃逸风险 03</span>
+              <span class="warning-card warning-card-h" data-i18n="warningLockdown">鸡舍封锁</span>
               <span class="warning-blip warning-blip-a"></span>
               <span class="warning-blip warning-blip-b"></span>
               <span class="warning-radar"></span>
               <span class="warning-pulse"></span>
             </div>
             <div class="stage-topline">
-              <span class="stage-label">实验对象</span>
-              <span class="stage-signal"><span aria-hidden="true"></span> 状态稳定……暂时</span>
+              <span class="stage-label" data-i18n="subjectLabel">实验对象</span>
             </div>
 
             <button class="chicken-hit" id="chicken-hit" type="button" aria-label="按住尖叫鸡，松开让它叫" aria-describedby="interaction-status">
               <span class="touch-ripple" aria-hidden="true"></span>
               <span class="chicken-shadow" aria-hidden="true"></span>
               <span class="chicken-art" id="chicken-art" aria-hidden="true">
-                <svg viewBox="0 0 360 640" role="img" aria-label="一只黄色的Q版尖叫鸡">
+                <svg viewBox="0 0 360 640" role="img" aria-label="一只黄色的Q版尖叫鸡" id="chicken-image">
                   <g class="chicken-svg-group">
                     <path class="tail" d="M92 324c-47-29-75-18-76 8 0 21 32 30 70 23-42 25-37 52-16 58 23 7 52-22 65-58Z" />
                     <path class="body-outline" d="M134 213c-26 28-48 70-56 123-13 88-1 171 47 214 25 22 64 31 90 31s65-9 90-31c48-43 60-126 47-214-8-53-30-95-56-123Z" />
@@ -121,7 +125,7 @@
             </button>
 
             <div class="stage-readout">
-              <span id="interaction-status">它还活着，暂时</span>
+              <span id="interaction-status" aria-live="polite">它还活着，暂时</span>
               <span class="readout-line" aria-hidden="true"></span>
               <span id="duration-readout">00.00 秒</span>
             </div>
@@ -129,21 +133,21 @@
 
           <aside class="telemetry" aria-label="互动数据">
             <div class="telemetry-block telemetry-primary">
-              <span class="data-label">尖叫次数</span>
+              <span class="data-label" data-i18n="screamCount">尖叫次数</span>
               <strong class="count" id="squeeze-count">000</strong>
-              <span class="data-caption">本次打开页面</span>
+              <span class="data-caption" data-i18n="thisSession">本次打开页面</span>
             </div>
 
             <div class="telemetry-divider" aria-hidden="true"></div>
 
             <div class="telemetry-block">
-              <span class="data-label">上次按压</span>
+              <span class="data-label" data-i18n="lastSqueeze">上次按压</span>
               <strong class="telemetry-value" id="last-duration">--.-- 秒</strong>
-              <span class="data-caption">按住时长</span>
+              <span class="data-caption" data-i18n="heldFor">按住时长</span>
             </div>
 
             <div class="telemetry-block">
-              <span class="data-label">按压强度</span>
+              <span class="data-label" data-i18n="squeezeIntensity">按压强度</span>
               <div class="intensity-row">
                 <strong class="telemetry-value" id="intensity-value">未开始</strong>
                 <span class="intensity-chip" id="intensity-chip">0%</span>
@@ -151,13 +155,13 @@
               <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
             </div>
 
-            <p class="telemetry-note">捏一下，<br />看看谁先后悔。</p>
+            <p class="telemetry-note" data-i18n="noteCopy">捏一下，把压力叫出来。</p>
           </aside>
         </div>
 
         <footer class="console-footer">
-          <div class="footer-marker"><span aria-hidden="true"></span> 耳朵安全协议：不存在</div>
-          <div class="footer-hint">尖叫鸡实验室 <span aria-hidden="true">·</span> 2026</div>
+          <div class="footer-marker"><span class="footer-burst" aria-hidden="true">💥</span><span data-i18n="safetyProtocol">耳朵爆炸协议：不存在</span></div>
+          <div class="footer-hint"><span data-i18n="labName">尖叫鸡实验室</span> <span aria-hidden="true">·</span> 2026</div>
         </footer>
       </section>
     </main>
@@ -165,6 +169,6 @@
     <script>
       document.body.classList.toggle('poster-stack-preview', new URLSearchParams(window.location.search).get('style') === 'poster-stack');
     </script>
-    <script src="app.js?v=20260907-scatter-v2"></script>
+    <script src="app.js?v=20260907-i18n-v1"></script>
   </body>
 </html>
