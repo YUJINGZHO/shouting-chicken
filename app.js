@@ -13,11 +13,16 @@ const meterFill = document.querySelector('#meter-fill');
 const muteButton = document.querySelector('#mute-button');
 const resetButton = document.querySelector('#reset-button');
 const soundLabel = document.querySelector('#sound-label');
+const mobileSoundLabel = document.querySelector('#mobile-sound-label');
+const soundState = document.querySelector('.sound-state');
 const languageToggle = document.querySelector('#language-toggle');
 const languageZh = document.querySelector('#language-zh');
 const languageEn = document.querySelector('#language-en');
 const consolePanel = document.querySelector('#console');
 const chickenImage = document.querySelector('#chicken-image');
+const touchRipple = chickenHit.querySelector('.touch-ripple');
+const svgRegions = Array.from(chickenImage.querySelectorAll('.svg-region'));
+const squeezePhysics = window.SqueezePhysics;
 
 const LANGUAGE_STORAGE_KEY = 'squeak-language';
 const translations = {
@@ -51,9 +56,11 @@ const translations = {
     subjectLabel: '实验对象',
     chickenImage: '一只黄色的Q版尖叫鸡',
     chickenButton: '按住尖叫鸡，松开让它叫',
+    interactionHint: '按住任意部位，松开听它叫。',
     idle: '它还活着，暂时',
     pressing: '按住不放',
     success: '尖叫！实验成功',
+    cancelled: '按压已取消，再试一次',
     reset: '次数已清零',
     seconds: '秒',
     notStarted: '未开始',
@@ -65,6 +72,9 @@ const translations = {
     lastSqueeze: '上次按压',
     heldFor: '按住时长',
     squeezeIntensity: '按压强度',
+    telemetryLabel: '互动数据',
+    dangerVolume: '危险音量',
+    audioUnavailable: '声音不可用，但视觉反馈仍正常',
     noteCopy: '捏一下，把压力叫出来。',
     safetyProtocol: '耳朵爆炸协议：不存在',
     labName: '尖叫鸡实验室',
@@ -99,9 +109,11 @@ const translations = {
     subjectLabel: 'SUBJECT',
     chickenImage: 'A yellow cartoon screaming chicken',
     chickenButton: 'Hold the chicken, then release to make it scream',
+    interactionHint: 'Hold any part. Release to hear it scream.',
     idle: "It's alive. For now.",
     pressing: 'HOLD IT',
     success: 'SCREAM! EXPERIMENT SUCCESSFUL',
+    cancelled: 'SQUEEZE CANCELLED. TRY AGAIN.',
     reset: 'COUNT RESET',
     seconds: 's',
     notStarted: 'NOT STARTED',
@@ -113,6 +125,9 @@ const translations = {
     lastSqueeze: 'LAST SQUEEZE',
     heldFor: 'HELD FOR',
     squeezeIntensity: 'SQUEEZE INTENSITY',
+    telemetryLabel: 'INTERACTION DATA',
+    dangerVolume: 'DANGEROUS VOLUME',
+    audioUnavailable: 'Sound unavailable; visual feedback still works',
     noteCopy: 'Squeeze it. Let the pressure out.',
     safetyProtocol: 'EAR EXPLOSION PROTOCOL: NONE',
     labName: 'SCREAMING CHICKEN LAB',
@@ -134,6 +149,10 @@ let interactionState = 'idle';
 let currentHoldSeconds = 0;
 let currentIntensity = 0;
 let lastSqueezeSeconds = null;
+let pressOrigin = { x: 0.5, y: 420 / 640, svgX: 180, svgY: 420 };
+let sessionHasCelebrated = false;
+let celebrationTimeout = 0;
+let audioUnavailable = false;
 let audioContext = null;
 let squeakEngine = null;
 let squeakEnginePromise = null;
@@ -357,7 +376,7 @@ function applyLanguage(nextLanguage = language) {
   document.querySelector('.brand')?.setAttribute('aria-label', t('brandHome'));
   consolePanel?.setAttribute('aria-label', t('consoleLabel'));
   document.querySelector('.machine-id')?.setAttribute('aria-label', t('experimentId'));
-  document.querySelector('.telemetry')?.setAttribute('aria-label', t('squeezeIntensity'));
+  document.querySelector('.telemetry')?.setAttribute('aria-label', t('telemetryLabel'));
   chickenHit?.setAttribute('aria-label', t('chickenButton'));
   chickenImage?.setAttribute('aria-label', t('chickenImage'));
   languageToggle?.setAttribute('aria-label', language === 'zh' ? t('switchToEnglish') : t('switchToChinese'));
@@ -385,8 +404,9 @@ function formatCount(value) {
 }
 
 function setIdleState() {
-  chickenHit.classList.remove('is-pressing');
-  chickenHit.style.setProperty('--squeeze-scale', '1');
+  chickenHit.classList.remove('is-pressing', 'is-releasing', 'is-cancelled');
+  chickenHit.style.setProperty('--squeeze-intensity', '0');
+  resetRegionPose({ immediate: true });
   pressPoint.style.left = '50%';
   pressPoint.style.top = '50%';
   interactionState = 'idle';
@@ -422,16 +442,67 @@ function setHandGrabbing(grabbing) {
   handCursor.classList.toggle('is-grabbing', grabbing);
 }
 
+function markAudioUnavailable() {
+  audioUnavailable = true;
+  soundState?.classList.add('is-unavailable');
+  document.body.classList.add('audio-unavailable');
+  soundLabel.textContent = t('audioUnavailable');
+  mobileSoundLabel.textContent = t('audioUnavailable');
+}
+
+function markAudioAvailable() {
+  audioUnavailable = false;
+  soundState?.classList.remove('is-unavailable');
+  document.body.classList.remove('audio-unavailable');
+  const label = muted ? t('soundMuted') : t('soundOn');
+  soundLabel.textContent = label;
+  mobileSoundLabel.textContent = label;
+}
+
+function getRenderedSvgScale() {
+  const rect = chickenImage.getBoundingClientRect();
+  return Math.min(rect.width / 360, rect.height / 640) || 1;
+}
+
+function applyRegionPose(pose) {
+  if (!pose?.regions) return;
+  const renderedScale = getRenderedSvgScale();
+
+  svgRegions.forEach((region) => {
+    const values = pose.regions[region.dataset.region];
+    if (!values) return;
+    region.style.transform = [
+      `translate(${values.x * renderedScale}px, ${values.y * renderedScale}px)`,
+      `rotate(${values.rotate}deg)`,
+      `scale(${values.scaleX}, ${values.scaleY})`,
+    ].join(' ');
+  });
+}
+
+function resetRegionPose({ immediate = false } = {}) {
+  svgRegions.forEach((region) => {
+    if (immediate) region.style.transition = 'none';
+    region.style.transform = 'translate(0, 0) rotate(0deg) scale(1, 1)';
+  });
+
+  if (immediate) {
+    requestAnimationFrame(() => {
+      svgRegions.forEach((region) => region.style.removeProperty('transition'));
+    });
+  }
+}
+
 function startChickenRain() {
   if (!chickenRain || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const source = chickenArt?.querySelector('svg');
   if (!source) return;
 
-  const chickenCount = 12;
+  const chickenCount = window.matchMedia('(max-width: 520px)').matches ? 5 : 8;
 
   for (let index = 0; index < chickenCount; index += 1) {
     const fallingChicken = document.createElement('span');
     const clone = source.cloneNode(true);
+    clone.querySelectorAll('.svg-region').forEach((region) => region.removeAttribute('style'));
     const spread = 8 + ((index * 37 + Math.random() * 18) % 84);
     const delay = index * 0.08 + Math.random() * 0.32;
     const duration = 2050 + Math.random() * 950;
@@ -465,18 +536,89 @@ function startChickenRain() {
   }
 }
 
+function triggerFirstScreamCelebration() {
+  if (sessionHasCelebrated) return;
+  sessionHasCelebrated = true;
+  consolePanel.classList.add('is-celebrating');
+  startChickenRain();
+  window.clearTimeout(celebrationTimeout);
+  celebrationTimeout = window.setTimeout(() => {
+    consolePanel.classList.remove('is-celebrating');
+  }, 1700);
+}
+
+function getSvgPointFromClient(clientX, clientY) {
+  try {
+    const matrix = chickenImage.getScreenCTM();
+    if (matrix) {
+      const point = chickenImage.createSVGPoint();
+      point.x = clientX;
+      point.y = clientY;
+      const local = point.matrixTransform(matrix.inverse());
+      return {
+        svgX: Math.max(0, Math.min(360, local.x)),
+        svgY: Math.max(0, Math.min(640, local.y)),
+      };
+    }
+  } catch {
+    // Fall through to the letterbox-aware bounding-box calculation.
+  }
+
+  const rect = chickenImage.getBoundingClientRect();
+  const scale = Math.min(rect.width / 360, rect.height / 640) || 1;
+  const offsetX = (rect.width - 360 * scale) / 2;
+  const offsetY = (rect.height - 640 * scale) / 2;
+  return {
+    svgX: Math.max(0, Math.min(360, (clientX - rect.left - offsetX) / scale)),
+    svgY: Math.max(0, Math.min(640, (clientY - rect.top - offsetY) / scale)),
+  };
+}
+
+function getClientPointFromSvg(svgX, svgY) {
+  try {
+    const matrix = chickenImage.getScreenCTM();
+    if (matrix) {
+      const point = chickenImage.createSVGPoint();
+      point.x = svgX;
+      point.y = svgY;
+      const screen = point.matrixTransform(matrix);
+      return { clientX: screen.x, clientY: screen.y };
+    }
+  } catch {
+    // Fall through to the letterbox-aware bounding-box calculation.
+  }
+
+  const rect = chickenImage.getBoundingClientRect();
+  const scale = Math.min(rect.width / 360, rect.height / 640) || 1;
+  return {
+    clientX: rect.left + (rect.width - 360 * scale) / 2 + svgX * scale,
+    clientY: rect.top + (rect.height - 640 * scale) / 2 + svgY * scale,
+  };
+}
+
 function setPressOrigin(clientX, clientY) {
   const rect = chickenHit.getBoundingClientRect();
   const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
   const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+  const svgPoint = getSvgPointFromClient(clientX, clientY);
   const xPercent = `${(x / rect.width) * 100}%`;
   const yPercent = `${(y / rect.height) * 100}%`;
+  pressOrigin = {
+    ...svgPoint,
+    x: svgPoint.svgX / 360,
+    y: svgPoint.svgY / 640,
+  };
   chickenHit.style.setProperty('--press-x', xPercent);
   chickenHit.style.setProperty('--press-y', yPercent);
   pressPoint.style.left = xPercent;
   pressPoint.style.top = yPercent;
-  chickenHit.querySelector('.touch-ripple').style.left = xPercent;
-  chickenHit.querySelector('.touch-ripple').style.top = yPercent;
+  touchRipple.style.left = xPercent;
+  touchRipple.style.top = yPercent;
+}
+
+function setKeyboardPressOrigin() {
+  const point = getClientPointFromSvg(180, 420);
+  setPressOrigin(point.clientX, point.clientY);
 }
 
 function sendSqueezeState(rate, air) {
@@ -494,8 +636,14 @@ function updatePress() {
   const intensity = getIntensity(elapsed);
   currentHoldSeconds = elapsed;
   currentIntensity = intensity;
-  const scale = Math.max(0.56, 1 - intensity * 0.0044);
-  chickenHit.style.setProperty('--squeeze-scale', String(scale));
+  chickenHit.style.setProperty('--squeeze-intensity', String(intensity / 100));
+  if (squeezePhysics) {
+    applyRegionPose(squeezePhysics.getPose({
+      x: pressOrigin.svgX,
+      y: pressOrigin.svgY,
+      intensity: intensity / 100,
+    }));
+  }
   // Air only leaves while the body is still collapsing. Holding at full
   // squeeze displaces nothing more, so the rasp dies away on its own.
   sendSqueezeState(elapsed < MAX_HOLD_SECONDS ? 1 : 0, intensity / 100);
@@ -508,13 +656,25 @@ function updatePress() {
 }
 
 function ensureAudio() {
-  if (!audioContext) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return null;
-    audioContext = new AudioContextClass();
+  try {
+    if (!audioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        markAudioUnavailable();
+        return null;
+      }
+      audioContext = new AudioContextClass();
+    }
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(markAudioAvailable).catch(markAudioUnavailable);
+    } else {
+      markAudioAvailable();
+    }
+    return audioContext;
+  } catch {
+    markAudioUnavailable();
+    return null;
   }
-  if (audioContext.state === 'suspended') audioContext.resume();
-  return audioContext;
 }
 
 async function ensureSqueakEngine() {
@@ -638,14 +798,14 @@ function startPress(clientX, clientY, pointerId = null) {
   pressStartedAt = performance.now();
   if (clientX == null || clientY == null) {
     hideHandCursor();
-    const rect = chickenHit.getBoundingClientRect();
-    setPressOrigin(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    setKeyboardPressOrigin();
   } else {
     showHandCursor(clientX, clientY);
     setHandGrabbing(true);
     setPressOrigin(clientX, clientY);
   }
   window.clearTimeout(statusTimeout);
+  chickenHit.classList.remove('is-releasing', 'is-cancelled');
   chickenHit.classList.add('is-pressing');
   interactionState = 'pressing';
   interactionStatus.textContent = t('pressing');
@@ -675,11 +835,22 @@ function finishPress(shouldSqueak = true) {
     interactionStatus.textContent = t('success');
     playSqueak(intensity);
     chickenHit.classList.remove('is-pressing');
+    chickenHit.classList.add('is-releasing');
+    chickenHit.style.setProperty('--squeeze-intensity', '0');
+    resetRegionPose();
+    triggerFirstScreamCelebration();
     window.clearTimeout(statusTimeout);
     statusTimeout = window.setTimeout(setIdleState, 700);
   } else {
     sendSqueezeState(0, 0);
-    setIdleState();
+    chickenHit.classList.remove('is-pressing');
+    chickenHit.classList.add('is-cancelled');
+    chickenHit.style.setProperty('--squeeze-intensity', '0');
+    resetRegionPose({ immediate: true });
+    interactionState = 'cancelled';
+    interactionStatus.textContent = t('cancelled');
+    window.clearTimeout(statusTimeout);
+    statusTimeout = window.setTimeout(setIdleState, 900);
   }
 }
 
@@ -690,7 +861,9 @@ function renderSoundIcon() {
   muteButton.querySelector('svg').innerHTML = icon;
   muteButton.setAttribute('aria-label', muted ? t('muteOn') : t('muteOff'));
   muteButton.setAttribute('aria-pressed', String(muted));
-  soundLabel.textContent = muted ? t('soundMuted') : t('soundOn');
+  const label = audioUnavailable ? t('audioUnavailable') : (muted ? t('soundMuted') : t('soundOn'));
+  soundLabel.textContent = label;
+  mobileSoundLabel.textContent = label;
 }
 
 function resetCount() {
@@ -784,4 +957,3 @@ languageToggle.addEventListener('click', () => {
 squeezeCount.textContent = formatCount(count);
 applyLanguage(language);
 setIdleState();
-window.setTimeout(startChickenRain, 120);

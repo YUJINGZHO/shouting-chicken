@@ -35,7 +35,8 @@ html {
 
 body {
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   margin: 0;
   color: var(--ink);
   overflow-x: hidden;
@@ -66,9 +67,10 @@ a:focus-visible {
   position: relative;
   z-index: 1;
   width: min(1240px, calc(100% - 48px));
-  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 34px 0 42px;
+  padding: clamp(16px, 4svh, 34px) 0 clamp(18px, 4svh, 42px);
 }
 
 .chicken-rain {
@@ -369,14 +371,15 @@ h1 em {
 .console-body {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(230px, 0.6fr);
-  min-height: 610px;
+  min-height: clamp(400px, calc(100svh - 300px), 610px);
+  min-height: clamp(400px, calc(100dvh - 300px), 610px);
 }
 
 .chicken-stage {
   position: relative;
   display: flex;
   min-width: 0;
-  min-height: 570px;
+  min-height: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -612,7 +615,6 @@ h1 em {
 }
 
 .chicken-hit {
-  --squeeze-scale: 1;
   --press-x: 50%;
   --press-y: 50%;
   position: relative;
@@ -652,7 +654,7 @@ h1 em {
   background: rgba(86, 56, 27, 0.2);
   border-radius: 50%;
   filter: blur(11px);
-  transform: translateX(-50%) scale(calc(1 / var(--squeeze-scale)), 1);
+  transform: translateX(-50%);
   transition: transform 280ms var(--ease-spring), opacity 200ms ease;
 }
 
@@ -661,10 +663,8 @@ h1 em {
   display: block;
   width: 84%;
   height: 84%;
-  transform: scale(var(--squeeze-scale));
-  transform-origin: var(--press-x) var(--press-y);
+  transform: none;
   transition: transform 380ms var(--ease-spring), filter 250ms ease;
-  will-change: transform;
 }
 
 .chicken-hit.is-pressing .chicken-art {
@@ -1520,4 +1520,411 @@ h1 em {
   .poster-stack-preview .warning-card-f { width: 44%; min-width: 0; min-height: 52px; padding: 12px 14px 11px; font-size: 11px; }
   .poster-stack-preview .warning-card-g { width: 48%; min-width: 0; min-height: 48px; font-size: 10px; }
   .poster-stack-preview .warning-card-h { width: 36%; min-width: 0; }
+}
+
+/* Interaction-first overrides. The chicken is a spatial SVG object now: each
+   region gets its own spring pose instead of scaling the illustration as one
+   rectangle. */
+.chicken-art {
+  transform: none;
+  transform-origin: center;
+}
+
+.chicken-shadow {
+  transform: translateX(-50%);
+}
+
+.svg-region {
+  --region-release-delay: 0ms;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translate(0, 0) rotate(0deg) scale(1, 1);
+  transition: transform 420ms var(--ease-spring), opacity 180ms ease;
+}
+
+.svg-region[data-region='head'] { --region-release-delay: 0ms; }
+.svg-region[data-region='neck'] { --region-release-delay: 35ms; }
+.svg-region[data-region='leftWing'],
+.svg-region[data-region='rightWing'] { --region-release-delay: 55ms; }
+.svg-region[data-region='body'],
+.svg-region[data-region='tail'] { --region-release-delay: 70ms; }
+.svg-region[data-region='legs'] { --region-release-delay: 90ms; }
+
+.chicken-hit.is-pressing .svg-region,
+.chicken-hit.is-cancelled .svg-region {
+  transition: none;
+}
+
+.chicken-hit:not(.is-pressing) .svg-region {
+  transition-delay: var(--region-release-delay);
+}
+
+.chicken-hit.is-pressing .svg-region,
+.chicken-hit.is-releasing .svg-region {
+  will-change: transform;
+}
+
+.chicken-hit.is-pressing .chicken-art,
+.chicken-hit.is-releasing .chicken-art {
+  will-change: transform;
+}
+
+.chicken-hit:focus-visible {
+  outline: none;
+}
+
+.chicken-hit:focus-visible::before {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 5px rgba(33, 104, 213, 0.2), 0 0 0 10px rgba(33, 104, 213, 0.08);
+}
+
+.chicken-hit:focus-visible .chicken-art {
+  filter: drop-shadow(0 0 0.45rem rgba(33, 104, 213, 0.36));
+}
+
+.interaction-hint {
+  width: min(100%, 435px);
+  margin: clamp(7px, 1.2svh, 13px) 0 0;
+  color: var(--blue-deep);
+  font-family: 'Fredoka', 'PingFang SC', sans-serif;
+  font-size: clamp(11px, 1.2vw, 13px);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.mobile-sound-state {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.danger-tag {
+  position: absolute;
+  top: -5px;
+  right: 0;
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 4px 7px 3px;
+  color: var(--white);
+  background: var(--red);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  transform: rotate(4deg);
+}
+
+.telemetry-primary::after {
+  display: none;
+}
+
+.sound-state.is-unavailable,
+.sound-state[data-state='unavailable'],
+.audio-unavailable .sound-state {
+  color: var(--red);
+}
+
+.sound-state.is-unavailable .status-dot,
+.sound-state[data-state='unavailable'] .status-dot,
+.audio-unavailable .status-dot {
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(215, 86, 53, 0.14);
+  animation: none;
+}
+
+.audio-status {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Four archive cards stay quiet by default. The extra annotations are a
+   short, earned celebration after the first completed interaction. */
+.warning-card-e,
+.warning-card-f,
+.warning-card-g,
+.warning-card-h {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.is-celebrating .warning-card-e,
+.is-celebrating .warning-card-f,
+.is-celebrating .warning-card-g,
+.is-celebrating .warning-card-h {
+  animation: warning-celebrate 1.6s ease-out both;
+}
+
+.is-celebrating .warning-card-f { animation-delay: 40ms; }
+.is-celebrating .warning-card-g { animation-delay: 80ms; }
+.is-celebrating .warning-card-h { animation-delay: 120ms; }
+
+@keyframes warning-celebrate {
+  0% {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(7px) rotate(var(--warning-rotation, 0deg)) scale(0.94);
+  }
+  18%,
+  70% {
+    visibility: visible;
+    opacity: 0.86;
+    transform: translateY(0) rotate(var(--warning-rotation, 0deg)) scale(1);
+  }
+  100% {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px) rotate(var(--warning-rotation, 0deg)) scale(0.98);
+  }
+}
+
+/* A short viewport is still a complete toy: stage, hint, readout, and
+   telemetry remain reachable without a page-height minimum. */
+@media (min-width: 821px) and (max-height: 800px) {
+  .app-shell {
+    padding-top: clamp(12px, 2.2svh, 22px);
+    padding-bottom: clamp(12px, 2.2svh, 22px);
+  }
+
+  .topbar { margin-bottom: 14px; }
+
+  .console {
+    padding: 18px 24px 0;
+  }
+
+  .console-heading {
+    padding-bottom: 16px;
+  }
+
+  .console-body {
+    min-height: clamp(390px, calc(100svh - 300px), 500px);
+    min-height: clamp(390px, calc(100dvh - 300px), 500px);
+  }
+
+  .chicken-stage {
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+
+  .chicken-hit {
+    width: min(100%, clamp(300px, calc(100svh - 360px), 435px));
+    margin-top: 12px;
+  }
+
+  .stage-topline { top: 15px; }
+  .interaction-hint { margin-top: 6px; }
+  .stage-readout { margin-top: 0; }
+  .console-footer { padding-top: 14px; }
+}
+
+@media (min-width: 821px) {
+  .console-body {
+    min-height: clamp(400px, calc(100svh - 300px), 610px);
+    min-height: clamp(400px, calc(100dvh - 300px), 610px);
+  }
+
+  .chicken-stage {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  .console-body {
+    min-height: 0;
+  }
+
+  .chicken-stage {
+    min-height: clamp(300px, 50svh, 430px);
+    padding-top: clamp(24px, 4svh, 30px);
+    padding-bottom: 16px;
+  }
+
+  .chicken-hit {
+    width: min(100%, clamp(280px, 77vw, 410px));
+    margin-top: 10px;
+  }
+
+  .interaction-hint {
+    width: min(100%, 410px);
+    margin-top: 7px;
+  }
+
+  .warning-wall {
+    inset: 52px 8px 34px;
+  }
+
+  .warning-card {
+    z-index: 1;
+    max-width: 34%;
+  }
+
+  .warning-card-a { left: 1%; }
+  .warning-card-b { right: 1%; }
+  .warning-card-c { left: 2%; }
+  .warning-card-d { right: 2%; }
+
+  .warning-radar,
+  .warning-blip {
+    opacity: 0.52;
+  }
+
+  .language-toggle,
+  .icon-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .topbar-actions {
+    gap: 7px;
+  }
+
+  .telemetry {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    width: min(100% - 22px, 460px);
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    align-items: center;
+    margin-bottom: 11px;
+  }
+
+  .console {
+    padding-top: 15px;
+  }
+
+  .console-heading {
+    gap: 10px;
+    padding-bottom: 15px;
+  }
+
+  .console-heading h1 {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 0 0.18em;
+    line-height: 0.98;
+  }
+
+  .console-heading h1 span,
+  .console-heading h1 em {
+    white-space: nowrap;
+  }
+
+  .chicken-stage {
+    min-height: clamp(300px, 49svh, 410px);
+  }
+
+  .chicken-hit {
+    width: min(100%, 340px);
+  }
+
+  .interaction-hint {
+    font-size: 11px;
+  }
+
+  .mobile-sound-state {
+    display: flex;
+  }
+
+  .warning-wall {
+    inset: 49px 6px 28px;
+  }
+
+  .warning-card {
+    max-width: 31%;
+    min-height: 28px;
+    padding: 6px 7px 5px;
+    font-size: 8px;
+    letter-spacing: 0.04em;
+  }
+
+  .warning-card-a { width: 31%; min-width: 0; }
+  .warning-card-b { width: 29%; min-width: 0; }
+  .warning-card-c { width: 30%; min-width: 0; }
+  .warning-card-d { width: 24%; min-width: 0; min-height: 32px; }
+
+  .telemetry {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .danger-tag {
+    top: -2px;
+    right: 1px;
+  }
+}
+
+@media (max-width: 390px) {
+  .console-heading h1 {
+    font-size: clamp(26px, 8.3vw, 34px);
+  }
+
+  .brand-copy small {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chicken-stage {
+    min-height: clamp(290px, 47svh, 380px);
+  }
+
+  .chicken-hit {
+    width: min(100%, 316px);
+  }
+
+  .warning-wall {
+    inset: 47px 4px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svg-region,
+  .chicken-hit:not(.is-pressing) .svg-region {
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .chicken-hit.is-pressing .svg-region,
+  .chicken-hit.is-releasing .svg-region {
+    will-change: auto;
+  }
+
+  .is-celebrating .warning-card-e,
+  .is-celebrating .warning-card-f,
+  .is-celebrating .warning-card-g,
+  .is-celebrating .warning-card-h {
+    animation: none !important;
+    visibility: visible;
+    opacity: 0.72;
+  }
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
 }
